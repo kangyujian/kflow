@@ -76,7 +76,7 @@ func (f *helloFactory) Create(cfg engine.ComponentConfig) (engine.Component, err
         { "name": "hello1", "type": "hello", "config": {} },
         { "name": "hello2", "type": "hello", "config": {} }
       ],
-      "timeout": 5000000000,
+      "timeout": 1,
       "enabled": true
     },
     {
@@ -86,7 +86,7 @@ func (f *helloFactory) Create(cfg engine.ComponentConfig) (engine.Component, err
         { "name": "hello3", "type": "hello", "config": {} }
       ],
       "dependencies": ["layer1"],
-      "timeout": 5000000000,
+      "timeout": 1,
       "enabled": true
     }
   ]
