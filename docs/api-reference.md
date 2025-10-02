@@ -63,7 +63,7 @@ type RetryConfig struct {
 // 基础组件接口
 type Component interface {
     Name() string
-    Execute(ctx context.Context, data map[string]interface{}) error
+    Execute(ctx context.Context, data DataContext) error
 }
 
 // 可选扩展接口
@@ -82,7 +82,7 @@ type ValidatableComponent interface {
 }
 ```
 
-共享数据以 `map[string]interface{}` 传递，各组件通过键读写（例如 `file_data`、`transformed_data`）。
+共享数据通过 `DataContext` 传递，提供并发安全的 `Set/Get/GetString/Delete/Has/Snapshot` 接口，各组件通过键读写（例如 `file_data`、`transformed_data`）。
 
 ## 组件工厂与注册表
 
@@ -109,7 +109,7 @@ func (r *ComponentRegistry) GetRegisteredTypes() []string
 ```go
 // 创建与执行
 func NewEngine(cfg *Config, registry *ComponentRegistry, options ...EngineOption) (*Engine, error)
-func (e *Engine) Execute(ctx context.Context, data map[string]interface{}) (*ExecutionStats, error)
+func (e *Engine) Execute(ctx context.Context, data DataContext) (*ExecutionStats, error)
 
 // 查询与校验
 func (e *Engine) GetConfig() *Config
@@ -143,7 +143,7 @@ cfg, _ := parser.ParseFile("workflow.json")
 registry := engine.NewComponentRegistry()
 registry.Register(&yourFactory{})
 eng, _ := engine.NewEngine(cfg, registry)
-data := map[string]interface{}{}
+data := NewDataContext()
 stats, err := eng.Execute(context.Background(), data)
 ```
 

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/kangyujian/kflow/engine"
 )
 
 // FileReaderComponent 文件读取组件
@@ -18,7 +20,7 @@ type FileReaderComponent struct {
 	data     string
 }
 
-func (c *FileReaderComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *FileReaderComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("FileReader: 读取文件 %s\n", c.filePath)
 
 	// 真实文件读取，支持在项目根或 example/basic 下运行
@@ -32,7 +34,7 @@ func (c *FileReaderComponent) Execute(ctx context.Context, data map[string]inter
 		bytes, err := os.ReadFile(p)
 		if err == nil {
 			c.data = string(bytes)
-			data["file_data"] = c.data
+			data.Set("file_data", c.data)
 			return nil
 		}
 		lastErr = err
@@ -52,7 +54,7 @@ type ConfigReaderComponent struct {
 	isCore     bool
 }
 
-func (c *ConfigReaderComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *ConfigReaderComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("ConfigReader: 读取配置文件 %s\n", c.configPath)
 	
 	// 模拟配置读取
@@ -63,7 +65,7 @@ func (c *ConfigReaderComponent) Execute(ctx context.Context, data map[string]int
 	}
 	
 	// 将配置存入上下文
-	data["config"] = config
+	data.Set("config", config)
 	
 	return nil
 }
@@ -79,11 +81,11 @@ type TransformerComponent struct {
 	isCore     bool
 }
 
-func (c *TransformerComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *TransformerComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("Transformer: 执行数据转换 %v\n", c.operations)
 	
 	// 从上下文获取数据
-	fileData, ok := data["file_data"].(string)
+	fileData, ok := data.GetString("file_data")
 	if !ok {
 		return fmt.Errorf("无法获取文件数据")
 	}
@@ -100,7 +102,7 @@ func (c *TransformerComponent) Execute(ctx context.Context, data map[string]inte
 	}
 	
 	// 更新上下文中的数据
-	data["transformed_data"] = result
+	data.Set("transformed_data", result)
 	
 	return nil
 }
@@ -116,11 +118,11 @@ type ValidatorComponent struct {
 	isCore bool
 }
 
-func (c *ValidatorComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *ValidatorComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("Validator: 执行数据验证 %v\n", c.rules)
 	
 	// 从上下文获取数据
-	transformedData, ok := data["transformed_data"].(string)
+	transformedData, ok := data.GetString("transformed_data")
 	if !ok {
 		return fmt.Errorf("无法获取转换后的数据")
 	}
@@ -161,11 +163,11 @@ type FileWriterComponent struct {
 	isCore     bool
 }
 
-func (c *FileWriterComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *FileWriterComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("FileWriter: 写入文件 %s\n", c.outputPath)
 
 	// 从上下文获取数据
-	transformedData, ok := data["transformed_data"].(string)
+	transformedData, ok := data.GetString("transformed_data")
 	if !ok {
 		return fmt.Errorf("无法获取转换后的数据")
 	}
@@ -210,7 +212,7 @@ type LoggerComponent struct {
 	isCore  bool
 }
 
-func (c *LoggerComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (c *LoggerComponent) Execute(ctx context.Context, data engine.DataContext) error {
 	fmt.Printf("[%s] %s: %s\n", c.level, time.Now().Format("2006-01-02 15:04:05"), c.message)
 	return nil
 }

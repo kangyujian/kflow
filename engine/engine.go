@@ -137,10 +137,7 @@ func NewEngine(config *Config, registry *ComponentRegistry, options ...EngineOpt
 }
 
 // Execute 执行 DAG
-func (e *Engine) Execute(ctx context.Context, data map[string]interface{}) (*ExecutionStats, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
+func (e *Engine) Execute(ctx context.Context, data DataContext) (*ExecutionStats, error) {
 	stats := &ExecutionStats{
 		StartTime:   time.Now(),
 		LayersTotal: len(e.layers),
@@ -258,10 +255,10 @@ func (e *Engine) Execute(ctx context.Context, data map[string]interface{}) (*Exe
 			"duration", stats.Duration,
 			"layers_success", stats.LayersSuccess,
 			"layers_failed", stats.LayersFailed,
-			"error", executionError)
+			"error", stats.Error)
 	}
 
-	return stats, executionError
+	return stats, stats.Error
 }
 
 // GetConfig 获取配置

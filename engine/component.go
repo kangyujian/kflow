@@ -11,7 +11,7 @@ type Component interface {
 	Name() string
 
 	// Execute 执行组件的主要逻辑
-	Execute(ctx context.Context, data map[string]interface{}) error
+	Execute(ctx context.Context, data DataContext) error
 }
 
 // InitializableComponent 可初始化的组件接口

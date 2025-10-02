@@ -82,7 +82,7 @@ func (l *Layer) Components() []Component {
 }
 
 // Execute 执行层级中的所有组件
-func (l *Layer) Execute(ctx context.Context, data map[string]interface{}) error {
+func (l *Layer) Execute(ctx context.Context, data DataContext) error {
 	if !l.config.Enabled {
 		return nil
 	}
@@ -111,7 +111,7 @@ func (l *Layer) Execute(ctx context.Context, data map[string]interface{}) error 
 }
 
 // executeSerial 串行执行组件
-func (l *Layer) executeSerial(ctx context.Context, data map[string]interface{}) error {
+func (l *Layer) executeSerial(ctx context.Context, data DataContext) error {
 	for _, component := range l.components {
 		if err := l.executeComponent(ctx, component, data); err != nil {
 			return err
@@ -121,7 +121,7 @@ func (l *Layer) executeSerial(ctx context.Context, data map[string]interface{}) 
 }
 
 // executeParallel 并行执行组件
-func (l *Layer) executeParallel(ctx context.Context, data map[string]interface{}) error {
+func (l *Layer) executeParallel(ctx context.Context, data DataContext) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(l.components))
 
@@ -179,7 +179,7 @@ func (l *Layer) executeParallel(ctx context.Context, data map[string]interface{}
 }
 
 // executeAsync 异步执行组件
-func (l *Layer) executeAsync(ctx context.Context, data map[string]interface{}) error {
+func (l *Layer) executeAsync(ctx context.Context, data DataContext) error {
 	// 异步执行不等待结果，直接启动所有组件
 	for _, component := range l.components {
 		go func(comp Component) {
@@ -190,7 +190,7 @@ func (l *Layer) executeAsync(ctx context.Context, data map[string]interface{}) e
 }
 
 // executeComponent 执行单个组件
-func (l *Layer) executeComponent(ctx context.Context, component Component, data map[string]interface{}) error {
+func (l *Layer) executeComponent(ctx context.Context, component Component, data DataContext) error {
 	componentName := component.Name()
 
 	// 初始化组件
@@ -247,8 +247,7 @@ func (l *Layer) executeComponent(ctx context.Context, component Component, data 
 	return nil
 }
 
-// executeWithRetry 带重试的执行组件
-func (l *Layer) executeWithRetry(ctx context.Context, component RetryableComponent, data map[string]interface{}) error {
+func (l *Layer) executeWithRetry(ctx context.Context, component RetryableComponent, data DataContext) error {
 	retryConfig := component.GetRetryConfig()
 	var lastErr error
 	var retryErrors []error

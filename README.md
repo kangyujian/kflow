@@ -40,8 +40,8 @@ type HelloComponent struct{ name string }
 
 func (h *HelloComponent) Name() string { return h.name }
 
-func (h *HelloComponent) Execute(ctx context.Context, data map[string]interface{}) error {
-    data["greeting"] = "Hello, " + h.name
+func (h *HelloComponent) Execute(ctx context.Context, data DataContext) error {
+    data.Set("greeting", "Hello, "+h.name)
     return nil
 }
 ```
@@ -118,16 +118,16 @@ func main() {
     eng, err := engine.NewEngine(cfg, registry)
     if err != nil { panic(err) }
 
-    // 共享数据存储
-    data := map[string]interface{}{}
+    // 共享数据存储（并发安全）
+    data := engine.NewDataContext()
 
     // 执行
-    if err := eng.Execute(context.Background(), data); err != nil {
+    if _, err := eng.Execute(context.Background(), data); err != nil {
         fmt.Printf("执行失败: %v\n", err)
         return
     }
 
-    fmt.Printf("执行完成, 数据: %+v\n", data)
+    fmt.Printf("执行完成, 数据: %+v\n", data.Snapshot())
 }
 ```
 

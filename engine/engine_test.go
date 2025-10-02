@@ -350,7 +350,7 @@ func TestEngineExecute(t *testing.T) {
 		registry.Register(factory)
 
 		engine, _ := NewEngine(config, registry)
-		stats, err := engine.Execute(context.Background(), nil)
+		stats, err := engine.Execute(context.Background(), NewDataContext())
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -390,7 +390,7 @@ func TestEngineExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
+					executeFunc: func(ctx context.Context, data DataContext) error {
 						return errors.New("component error")
 					},
 				}, nil
@@ -399,7 +399,7 @@ func TestEngineExecute(t *testing.T) {
 		registry.Register(factory)
 
 		engine, _ := NewEngine(config, registry)
-		stats, err := engine.Execute(context.Background(), nil)
+		stats, err := engine.Execute(context.Background(), NewDataContext())
 
 		if err == nil {
 			t.Error("Expected error")
@@ -440,8 +440,8 @@ func TestEngineExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
-						// Simulate long-running operation
+					executeFunc: func(ctx context.Context, data DataContext) error {
+					// Simulate long-running operation
 						select {
 						case <-time.After(200 * time.Millisecond):
 							return nil
@@ -455,7 +455,7 @@ func TestEngineExecute(t *testing.T) {
 		registry.Register(factory)
 
 		engine, _ := NewEngine(config, registry)
-		stats, err := engine.Execute(context.Background(), nil)
+		stats, err := engine.Execute(context.Background(), NewDataContext())
 
 		if err == nil {
 			t.Error("Expected timeout error")

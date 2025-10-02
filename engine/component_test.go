@@ -10,14 +10,14 @@ import (
 // MockComponent 用于测试的模拟组件
 type MockComponent struct {
 	name        string
-	executeFunc func(ctx context.Context, data map[string]interface{}) error
+	executeFunc func(ctx context.Context, data DataContext) error
 }
 
 func (m *MockComponent) Name() string {
 	return m.name
 }
 
-func (m *MockComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+func (m *MockComponent) Execute(ctx context.Context, data DataContext) error {
 	if m.executeFunc != nil {
 		return m.executeFunc(ctx, data)
 	}

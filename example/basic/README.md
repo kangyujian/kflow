@@ -53,7 +53,7 @@ go run .
 ## 注意事项
 
 - 验证规则（validator）默认为 `not_empty` 和 `max_length:500`，如需更严格可调整规则或精简 `data.txt`
-- 所有组件的 `Execute` 方法签名为 `Execute(ctx context.Context, data map[string]interface{})`
+- 所有组件的 `Execute` 方法签名为 `Execute(ctx context.Context, data DataContext)`
 
 ## 核心概念
 

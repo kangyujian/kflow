@@ -41,8 +41,8 @@ func main() {
 		log.Fatalf("创建引擎失败: %v", err)
 	}
 
-	// 创建数据存储
-	dataStore := make(map[string]interface{})
+	// 创建并发安全的数据上下文
+	dataCtx := engine.NewDataContext()
 	ctx := context.Background()
 
 	// 设置超时
@@ -53,16 +53,16 @@ func main() {
 	fmt.Println("开始执行工作流...")
 	start := time.Now()
 
-	_, err = kflowEngine.Execute(ctx, dataStore)
+	_, err = kflowEngine.Execute(ctx, dataCtx)
 	if err != nil {
 		log.Fatalf("执行工作流失败: %v", err)
 	}
 
 	fmt.Printf("工作流执行完成，耗时: %v\n", time.Since(start))
 
-	// 打印结果
+	// 打印结果快照
 	fmt.Println("\n执行结果:")
-	for k, v := range dataStore {
+	for k, v := range dataCtx.Snapshot() {
 		fmt.Printf("%s: %v\n", k, v)
 	}
 }

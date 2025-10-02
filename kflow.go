@@ -13,6 +13,9 @@ type (
 	RetryableComponent    = engine.RetryableComponent
 	ValidatableComponent  = engine.ValidatableComponent
 
+	// Data context
+	DataContext = engine.DataContext
+
 	// Configuration types
 	ComponentConfig = engine.ComponentConfig
 	RetryConfig     = engine.RetryConfig
@@ -58,7 +61,9 @@ const (
 // Re-export constructor functions
 var (
 	NewComponentRegistry = engine.NewComponentRegistry
-	NewEngine           = engine.NewEngine
-	NewLayer            = engine.NewLayer
-	NewConfigParser     = engine.NewConfigParser
+	NewEngine            = engine.NewEngine
+	NewLayer             = engine.NewLayer
+	NewConfigParser      = engine.NewConfigParser
+	NewDataContext     = engine.NewDataContext
+	NewDataContextWith = engine.NewDataContextWith
 )

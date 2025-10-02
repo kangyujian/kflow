@@ -42,7 +42,7 @@
 - 为每个层构建执行器（Serial/Parallel/Async）。
 
 3. 执行 DAG
-- 数据以 `map[string]interface{}` 在组件间传递。
+- 数据通过并发安全的 `DataContext` 在组件间传递，组件通过键读写。
 - Serial：顺序逐个执行，遇错返回。
 - Parallel：并发执行，受 `parallel` 限制；收集错误并按 `critical` 决策。
 - Async：启动但不等待完成，立即进入下一层。

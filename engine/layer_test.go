@@ -181,7 +181,7 @@ func TestLayerExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
+					executeFunc: func(ctx context.Context, data DataContext) error {
 						mu.Lock()
 						executionOrder = append(executionOrder, config.Name)
 						mu.Unlock()
@@ -205,7 +205,7 @@ func TestLayerExecute(t *testing.T) {
 		}
 
 		layer, _ := NewLayer(config, registry)
-		err := layer.Execute(context.Background(), nil)
+		err := layer.Execute(context.Background(), NewDataContext())
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -233,8 +233,8 @@ func TestLayerExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
-						mu.Lock()
+					executeFunc: func(ctx context.Context, data DataContext) error {
+					mu.Lock()
 						executionCount++
 						mu.Unlock()
 						time.Sleep(50 * time.Millisecond) // Simulate work
@@ -258,7 +258,7 @@ func TestLayerExecute(t *testing.T) {
 
 		layer, _ := NewLayer(config, registry)
 		start := time.Now()
-		err := layer.Execute(context.Background(), nil)
+		err := layer.Execute(context.Background(), NewDataContext())
 		duration := time.Since(start)
 
 		if err != nil {
@@ -281,8 +281,8 @@ func TestLayerExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
-						time.Sleep(100 * time.Millisecond) // Simulate work
+					executeFunc: func(ctx context.Context, data DataContext) error {
+					time.Sleep(100 * time.Millisecond) // Simulate work
 						return nil
 					},
 				}, nil
@@ -302,7 +302,7 @@ func TestLayerExecute(t *testing.T) {
 
 		layer, _ := NewLayer(config, registry)
 		start := time.Now()
-		err := layer.Execute(context.Background(), nil)
+		err := layer.Execute(context.Background(), NewDataContext())
 		duration := time.Since(start)
 
 		if err != nil {
@@ -321,8 +321,8 @@ func TestLayerExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
-						if config.Name == "comp2" {
+					executeFunc: func(ctx context.Context, data DataContext) error {
+					if config.Name == "comp2" {
 							return errors.New("component error")
 						}
 						return nil
@@ -344,7 +344,7 @@ func TestLayerExecute(t *testing.T) {
 		}
 
 		layer, _ := NewLayer(config, registry)
-		err := layer.Execute(context.Background(), nil)
+		err := layer.Execute(context.Background(), NewDataContext())
 
 		if err == nil {
 			t.Error("Expected error from failing component")
@@ -357,8 +357,8 @@ func TestLayerExecute(t *testing.T) {
 			createFunc: func(config ComponentConfig) (Component, error) {
 				return &MockComponent{
 					name: config.Name,
-					executeFunc: func(ctx context.Context, data map[string]interface{}) error {
-						// Simulate long-running operation that respects context cancellation
+					executeFunc: func(ctx context.Context, data DataContext) error {
+					// Simulate long-running operation that respects context cancellation
 						select {
 						case <-time.After(200 * time.Millisecond): // Longer than timeout
 							return nil
@@ -382,7 +382,7 @@ func TestLayerExecute(t *testing.T) {
 		}
 
 		layer, _ := NewLayer(config, registry)
-		err := layer.Execute(context.Background(), nil)
+		err := layer.Execute(context.Background(), NewDataContext())
 
 		if err == nil {
 			t.Error("Expected timeout error")
