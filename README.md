@@ -12,37 +12,13 @@ KFlow 是一个轻量级的 Go 语言 DAG（有向无环图）执行框架，支
 - 📋 **JSON 配置** - 通过 JSON 文件定义 DAG 结构和执行策略
 - 🔄 **多种执行模式** - 支持串行、并行、异步执行
 - 🛡️ **错误恢复** - 内置 recover 机制，提供兜底保障
-- ⚡ **核心组件控制** - 支持核心组件失败时终止整个流程
 - 📊 **层级执行** - 层与层之间顺序执行，层内支持多种执行模式
 - 🔧 **可扩展** - 易于扩展的组件接口设计
-
-## 🏗️ 架构概览
-
-```
-┌─────────────────┐
-│   JSON Config   │
-└─────────┬───────┘
-          │
-          ▼
-┌─────────────────┐    ┌─────────────────┐
-│   DAG Parser    │───▶│   DAG Engine    │
-└─────────────────┘    └─────────┬───────┘
-                                 │
-                                 ▼
-                       ┌─────────────────┐
-                       │   Layer Exec    │
-                       └─────────┬───────┘
-                                 │
-                                 ▼
-                    ┌──────────┬──────────┬──────────┐
-                    │  Serial  │ Parallel │  Async   │
-                    └──────────┴──────────┴──────────┘
-```
 
 ## 📦 安装
 
 ```bash
-go get github.com/yourusername/kflow
+go get github.com/kangyujian/kflow
 ```
 
 ## 🚀 快速开始
@@ -54,118 +30,112 @@ package main
 
 import (
     "context"
-    "fmt"
-    "github.com/yourusername/kflow"
 )
 
-// 实现 Component 接口
-type HelloComponent struct {
-    Name string
-}
+// 实现 engine.Component 接口
+// 注意：Execute 需要接受共享数据 data
+// Name 返回组件名称
 
-func (h *HelloComponent) Execute(ctx context.Context) error {
-    fmt.Printf("Hello from %s\n", h.Name)
+type HelloComponent struct{ name string }
+
+func (h *HelloComponent) Name() string { return h.name }
+
+func (h *HelloComponent) Execute(ctx context.Context, data map[string]interface{}) error {
+    data["greeting"] = "Hello, " + h.name
     return nil
-}
-
-func (h *HelloComponent) GetName() string {
-    return h.Name
-}
-
-func (h *HelloComponent) IsCore() bool {
-    return false
 }
 ```
 
-### 2. 创建 JSON 配置
+### 2. 注册组件工厂
+
+```go
+// 组件工厂需要实现 Create 和 GetType
+// Create 接受 engine.ComponentConfig 并返回组件实例
+
+type helloFactory struct{}
+
+func (f *helloFactory) GetType() string { return "hello" }
+
+func (f *helloFactory) Create(cfg engine.ComponentConfig) (engine.Component, error) {
+    return &HelloComponent{name: cfg.Name}, nil
+}
+```
+
+### 3. 创建 JSON 配置
 
 ```json
 {
   "name": "hello_workflow",
+  "version": "1.0.0",
+  "description": "示例工作流",
   "layers": [
     {
       "name": "layer1",
-      "execution_mode": "parallel",
+      "mode": "parallel",
       "components": [
-        {
-          "name": "hello1",
-          "type": "hello",
-          "is_core": false,
-          "config": {
-            "message": "Hello World 1"
-          }
-        },
-        {
-          "name": "hello2",
-          "type": "hello",
-          "is_core": true,
-          "config": {
-            "message": "Hello World 2"
-          }
-        }
-      ]
+        { "name": "hello1", "type": "hello", "config": {} },
+        { "name": "hello2", "type": "hello", "config": {} }
+      ],
+      "timeout": 5000000000,
+      "enabled": true
     },
     {
       "name": "layer2",
-      "execution_mode": "serial",
+      "mode": "serial",
       "components": [
-        {
-          "name": "hello3",
-          "type": "hello",
-          "is_core": false,
-          "config": {
-            "message": "Hello World 3"
-          }
-        }
-      ]
+        { "name": "hello3", "type": "hello", "config": {} }
+      ],
+      "dependencies": ["layer1"],
+      "timeout": 5000000000,
+      "enabled": true
     }
   ]
 }
 ```
 
-### 3. 执行工作流
+### 4. 执行工作流
 
 ```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/kangyujian/kflow/engine"
+)
+
 func main() {
-    // 创建 DAG 引擎
-    engine := kflow.NewEngine()
-    
+    // 解析配置
+    parser := engine.NewConfigParser()
+    cfg, err := parser.ParseFile("workflow.json")
+    if err != nil { panic(err) }
+
     // 注册组件工厂
-    engine.RegisterComponentFactory("hello", func(config map[string]interface{}) kflow.Component {
-        message := config["message"].(string)
-        return &HelloComponent{Name: message}
-    })
-    
-    // 从配置文件加载 DAG
-    dag, err := engine.LoadFromFile("workflow.json")
-    if err != nil {
-        panic(err)
-    }
-    
-    // 执行 DAG
-    ctx := context.Background()
-    if err := engine.Execute(ctx, dag); err != nil {
+    registry := engine.NewComponentRegistry()
+    registry.Register(&helloFactory{})
+
+    // 创建引擎
+    eng, err := engine.NewEngine(cfg, registry)
+    if err != nil { panic(err) }
+
+    // 共享数据存储
+    data := map[string]interface{}{}
+
+    // 执行
+    if err := eng.Execute(context.Background(), data); err != nil {
         fmt.Printf("执行失败: %v\n", err)
+        return
     }
+
+    fmt.Printf("执行完成, 数据: %+v\n", data)
 }
 ```
 
 ## 📖 执行模式
 
-### 串行执行 (Serial)
-组件按顺序依次执行，前一个组件完成后才开始下一个。
-
-### 并行执行 (Parallel)
-层内所有组件同时启动执行，等待所有组件完成。
-
-### 异步执行 (Async)
-组件异步执行，不等待完成即继续执行下一层。
-
-## 🛡️ 错误处理
-
-- **Recover 机制**: 每个组件都有内置的 panic 恢复机制
-- **核心组件**: 标记为核心的组件失败时会终止整个流程
-- **非核心组件**: 失败时记录错误但不影响流程继续执行
+- 串行执行 (Serial): 组件按定义顺序依次执行
+- 并行执行 (Parallel): 层内组件并发执行，等待全部完成
+- 异步执行 (Async): 组件异步执行，不阻塞进入下一层
 
 ## 📁 项目结构
 
@@ -173,14 +143,18 @@ func main() {
 kflow/
 ├── README.md
 ├── go.mod
-├── engine.go          # DAG 执行引擎
-├── component.go       # 组件接口定义
-├── config.go          # 配置文件解析
-├── layer.go           # 层执行逻辑
-├── examples/          # 使用示例
-│   ├── basic/
-│   └── advanced/
-└── docs/              # 详细文档
+├── engine/
+│   ├── component.go       # 组件接口与注册表
+│   ├── config.go          # 配置解析与校验
+│   ├── engine.go          # 引擎与执行统计
+│   └── layer.go           # 层执行逻辑
+├── example/
+│   └── basic/             # 基础示例
+│       ├── components.go
+│       ├── workflow.json
+│       ├── main.go
+│       └── data.txt / output.txt
+└── docs/
     ├── architecture.md
     ├── config-spec.md
     └── api-reference.md
@@ -190,23 +164,6 @@ kflow/
 
 欢迎提交 Issue 和 Pull Request！
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 🔗 相关链接
-
-- [架构设计文档](docs/architecture.md)
-- [配置文件规范](docs/config-spec.md)
-- [API 参考文档](docs/api-reference.md)
-- [使用示例](examples/)
-
----
-
-如果这个项目对你有帮助，请给个 ⭐️ 支持一下！

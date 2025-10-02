@@ -1,12 +1,14 @@
 # KFlow 基础示例
 
-这个示例展示了 KFlow 框架的基本用法，包括配置文件定义和组件实现。
+这个示例展示了 KFlow 框架的基本用法，包括配置文件定义和组件实现，并演示真实的文件读取与写入。
 
 ## 示例结构
 
 - `workflow.json`: 工作流配置文件，定义了三个层级的执行流程
-- `components.go`: 组件实现代码，包含各种类型的组件
+- `components.go`: 组件实现代码，包含文件读取、配置读取、转换、验证、写入、日志
 - `main.go`: 主程序，展示如何初始化和执行工作流
+- `data.txt`: 示例输入文件，供 FileReaderComponent 读取
+- `output.txt`: 示例输出文件，由 FileWriterComponent 写入
 
 ## 工作流说明
 
@@ -28,11 +30,30 @@
 
 ## 运行示例
 
-在当前目录下执行：
+在项目根目录运行：
 
 ```bash
+go run ./example/basic
+```
+
+或在示例目录运行：
+
+```bash
+cd example/basic
 go run .
 ```
+
+> 组件实现已支持在根目录或示例目录运行时自动解析相对路径。
+
+## 文件I/O说明
+
+- FileReaderComponent：使用 `os.ReadFile` 读取 `data.txt` 内容，并将结果写入共享数据 `file_data`
+- FileWriterComponent：将 `transformed_data` 写入 `output.txt`，根据 `append` 决定覆盖或追加
+
+## 注意事项
+
+- 验证规则（validator）默认为 `not_empty` 和 `max_length:500`，如需更严格可调整规则或精简 `data.txt`
+- 所有组件的 `Execute` 方法签名为 `Execute(ctx context.Context, data map[string]interface{})`
 
 ## 核心概念
 
