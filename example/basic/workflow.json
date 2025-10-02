@@ -1,0 +1,80 @@
+{
+  "name": "basic_workflow",
+  "version": "1.0.0",
+  "description": "基础工作流示例",
+  "layers": [
+    {
+      "name": "data_preparation",
+      "mode": "parallel",
+      "components": [
+        {
+          "name": "data_loader",
+          "type": "file_reader",
+          "config": {
+            "file_path": "data.txt",
+            "encoding": "utf-8"
+          }
+        },
+        {
+          "name": "config_loader",
+          "type": "config_reader",
+          "config": {
+            "config_path": "config.yaml"
+          }
+        }
+      ],
+      "timeout": 5000000000,
+      "enabled": true
+    },
+    {
+      "name": "data_processing",
+      "mode": "serial",
+      "components": [
+        {
+          "name": "data_transformer",
+          "type": "transformer",
+          "config": {
+            "operations": ["uppercase", "trim"]
+          }
+        },
+        {
+          "name": "data_validator",
+          "type": "validator",
+          "config": {
+            "rules": ["not_empty", "max_length:500"]
+          }
+        }
+      ],
+      "dependencies": ["data_preparation"],
+      "timeout": 10000000000,
+      "enabled": true
+    },
+    {
+      "name": "data_output",
+      "mode": "serial",
+      "components": [
+        {
+          "name": "data_writer",
+          "type": "file_writer",
+          "is_core": true,
+          "config": {
+            "output_path": "output.txt",
+            "append": false
+          }
+        },
+        {
+          "name": "notifier",
+          "type": "logger",
+          "is_core": false,
+          "config": {
+            "level": "info",
+            "message": "Data processing completed"
+          }
+        }
+      ],
+      "dependencies": ["data_processing"],
+      "timeout": 5000000000,
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+HELLO KFLOW!
+这是一段示例数据，供 FILEREADERCOMPONENT 读取。
+行2：KFLOW 是一个可配置的工作流执行框架示例。
