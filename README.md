@@ -1,29 +1,31 @@
-# KFlow - 轻量级 Go DAG 框架
+# KFlow - Lightweight Go DAG Framework
 
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.18-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
-KFlow 是一个轻量级的 Go 语言 DAG（有向无环图）执行框架，支持通过 JSON 配置文件定义复杂的工作流程，提供灵活的执行模式和强大的错误处理能力。
+KFlow is a lightweight DAG (Directed Acyclic Graph) execution framework for Go. It supports defining complex workflows via JSON configuration, offering flexible execution modes and robust error handling.
 
-## ✨ 特性
+- 中文版 README: see [README.zh.md](README.zh.md)
 
-- 🚀 **轻量级设计** - 简洁的 API，最小化的依赖
-- 📋 **JSON 配置** - 通过 JSON 文件定义 DAG 结构和执行策略
-- 🔄 **多种执行模式** - 支持串行、并行、异步执行
-- 🛡️ **错误恢复** - 内置 recover 机制，提供兜底保障
-- 📊 **层级执行** - 层与层之间顺序执行，层内支持多种执行模式
-- 🔧 **可扩展** - 易于扩展的组件接口设计
+## ✨ Features
 
-## 📦 安装
+- 🚀 Lightweight design — Simple APIs with minimal dependencies
+- 📋 JSON configuration — Define DAG structure and execution strategies via JSON files
+- 🔄 Multiple execution modes — Support serial, parallel, and async execution
+- 🛡️ Error recovery — Built-in recover mechanism for fail-safe guarantees
+- 📊 Layered execution — Sequential across layers; multiple modes within layers
+- 🔧 Extensible — Easy-to-extend component interface design
+
+## 📦 Installation
 
 ```bash
 go get github.com/kangyujian/kflow
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 定义组件
+### 1. Define a Component
 
 ```go
 package main
@@ -32,9 +34,9 @@ import (
     "context"
 )
 
-// 实现 engine.Component 接口
-// 注意：Execute 需要接受共享数据 data
-// Name 返回组件名称
+// Implement engine.Component interface
+// Execute receives a shared DataContext
+// Name returns the component name
 
 type HelloComponent struct{ name string }
 
@@ -46,11 +48,11 @@ func (h *HelloComponent) Execute(ctx context.Context, data DataContext) error {
 }
 ```
 
-### 2. 注册组件工厂
+### 2. Register a Component Factory
 
 ```go
-// 组件工厂需要实现 Create 和 GetType
-// Create 接受 engine.ComponentConfig 并返回组件实例
+// The factory implements Create and GetType
+// Create receives engine.ComponentConfig and returns a component instance
 
 type helloFactory struct{}
 
@@ -61,13 +63,13 @@ func (f *helloFactory) Create(cfg engine.ComponentConfig) (engine.Component, err
 }
 ```
 
-### 3. 创建 JSON 配置
+### 3. Create a JSON Configuration
 
 ```json
 {
   "name": "hello_workflow",
   "version": "1.0.0",
-  "description": "示例工作流",
+  "description": "Sample workflow",
   "layers": [
     {
       "name": "layer1",
@@ -93,7 +95,7 @@ func (f *helloFactory) Create(cfg engine.ComponentConfig) (engine.Component, err
 }
 ```
 
-### 4. 执行工作流
+### 4. Execute the Workflow
 
 ```go
 package main
@@ -105,51 +107,51 @@ import (
 )
 
 func main() {
-    // 解析配置
+    // Parse configuration
     parser := engine.NewConfigParser()
     cfg, err := parser.ParseFile("workflow.json")
     if err != nil { panic(err) }
 
-    // 注册组件工厂
+    // Register component factories
     registry := engine.NewComponentRegistry()
     registry.Register(&helloFactory{})
 
-    // 创建引擎
+    // Create engine
     eng, err := engine.NewEngine(cfg, registry)
     if err != nil { panic(err) }
 
-    // 共享数据存储（并发安全）
+    // Shared, concurrency-safe data store
     data := engine.NewDataContext()
 
-    // 执行
+    // Execute
     if _, err := eng.Execute(context.Background(), data); err != nil {
-        fmt.Printf("执行失败: %v\n", err)
+        fmt.Printf("execution failed: %v\n", err)
         return
     }
 
-    fmt.Printf("执行完成, 数据: %+v\n", data.Snapshot())
+    fmt.Printf("execution completed, data: %+v\n", data.Snapshot())
 }
 ```
 
-## 📖 执行模式
+## 📖 Execution Modes
 
-- 串行执行 (Serial): 组件按定义顺序依次执行
-- 并行执行 (Parallel): 层内组件并发执行，等待全部完成
-- 异步执行 (Async): 组件异步执行，不阻塞进入下一层
+- Serial: Components execute in defined order
+- Parallel: Components within a layer execute concurrently; waits for all to complete
+- Async: Components execute asynchronously; does not block proceeding to next layer
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 kflow/
 ├── README.md
 ├── go.mod
 ├── engine/
-│   ├── component.go       # 组件接口与注册表
-│   ├── config.go          # 配置解析与校验
-│   ├── engine.go          # 引擎与执行统计
-│   └── layer.go           # 层执行逻辑
+│   ├── component.go       # Component interface & registry
+│   ├── config.go          # Config parsing & validation
+│   ├── engine.go          # Engine & execution stats
+│   └── layer.go           # Layer execution logic
 ├── example/
-│   └── basic/             # 基础示例
+│   └── basic/
 │       ├── components.go
 │       ├── workflow.json
 │       ├── main.go
@@ -160,10 +162,19 @@ kflow/
     └── api-reference.md
 ```
 
-## 🤝 贡献
+## 📚 Documentation
 
-欢迎提交 Issue 和 Pull Request！
+- English:
+  - Docs: [Architecture (EN)](docs/architecture.en.md), [Config Spec (EN)](docs/config-spec.en.md), [API Reference (EN)](docs/api-reference.en.md)
+  - Example: [Basic Example (EN)](example/basic/README.en.md)
+- Chinese:
+  - Docs: [Architecture (ZH)](docs/architecture.md), [Config Spec (ZH)](docs/config-spec.md), [API Reference (ZH)](docs/api-reference.md)
+  - Example: [基础示例 (ZH)](example/basic/README.md)
 
-## 📄 许可证
+## 🤝 Contributing
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+Issues and Pull Requests are welcome!
+
+## 📄 License
+
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
