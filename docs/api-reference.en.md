@@ -20,6 +20,7 @@ type Config struct {
     Global      map[string]interface{} `json:"global,omitempty"`
     Timeout     time.Duration          `json:"timeout,omitempty"`
     Metadata    map[string]string      `json:"metadata,omitempty"`
+    Extends     string                 `json:"extends,omitempty"`
 }
 
 // Layer config
@@ -31,6 +32,7 @@ type LayerConfig struct {
     Dependencies []string          `json:"dependencies"`
     Enabled      bool              `json:"enabled"`
     Parallel     int               `json:"parallel,omitempty"` // parallelism limit
+    Remove       bool              `json:"remove,omitempty"`
 }
 
 // Component config
@@ -43,6 +45,7 @@ type ComponentConfig struct {
     Retry        *RetryConfig           `json:"retry,omitempty"`
     Critical     bool                   `json:"critical"`
     Enabled      bool                   `json:"enabled"`
+    Remove       bool                   `json:"remove,omitempty"`
 }
 
 // Retry config
@@ -56,6 +59,12 @@ type RetryConfig struct {
 - Execution modes: `serial` / `parallel` / `async`.
 - Defaults: layer and component `enabled` default to true when not set; component `timeout` defaults to 30s; layer `mode` defaults to serial.
 - Environment variable substitution supports `${VAR}` and `${VAR:default}`.
+
+## Inheritance & Merge
+- Root-level `extends`: a child workflow can inherit from a parent workflow (file path or identifier).
+- Layer/Component `remove: true`: delete the corresponding layer or component during inheritance merge.
+- Field overrides: child overrides parent fields with the same name; `enabled/critical` only override to true when explicitly set to true; unset values do not override parent values.
+- Detailed rules: see Config Spec [ZH](docs/config-spec.md) and [EN](docs/config-spec.en.md).
 
 ## Component Interfaces
 

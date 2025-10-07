@@ -16,6 +16,7 @@ KFlow is a lightweight DAG (Directed Acyclic Graph) execution framework for Go. 
 - 🛡️ Error recovery — Built-in recover mechanism for fail-safe guarantees
 - 📊 Layered execution — Sequential across layers; multiple modes within layers
 - 🔧 Extensible — Easy-to-extend component interface design
+ - 🧬 Workflow inheritance — Inherit/override/add/delete via `extends/remove`
 
 ## 📦 Installation
 
@@ -166,9 +167,11 @@ kflow/
 
 - English:
   - Docs: [Architecture (EN)](docs/architecture.en.md), [Config Spec (EN)](docs/config-spec.en.md), [API Reference (EN)](docs/api-reference.en.md)
+  - Examples: [Inheritance Examples (EN)](docs/inheritance-examples.en.md)
   - Example: [Basic Example (EN)](example/basic/README.en.md)
 - Chinese:
   - Docs: [Architecture (ZH)](docs/architecture.md), [Config Spec (ZH)](docs/config-spec.md), [API Reference (ZH)](docs/api-reference.md)
+  - 示例： [继承案例 (ZH)](docs/inheritance-examples.md)
   - Example: [基础示例 (ZH)](example/basic/README.md)
 
 ## 🤝 Contributing

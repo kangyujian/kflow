@@ -20,6 +20,7 @@ type Config struct {
     Global      map[string]interface{} `json:"global,omitempty"`
     Timeout     time.Duration          `json:"timeout,omitempty"`
     Metadata    map[string]string      `json:"metadata,omitempty"`
+    Extends     string                 `json:"extends,omitempty"`
 }
 
 // 层配置
@@ -31,6 +32,7 @@ type LayerConfig struct {
     Dependencies []string          `json:"dependencies"`
     Enabled      bool              `json:"enabled"`
     Parallel     int               `json:"parallel,omitempty"` // 并行度上限
+    Remove       bool              `json:"remove,omitempty"`
 }
 
 // 组件配置
@@ -43,6 +45,7 @@ type ComponentConfig struct {
     Retry        *RetryConfig           `json:"retry,omitempty"`
     Critical     bool                   `json:"critical"`
     Enabled      bool                   `json:"enabled"`
+    Remove       bool                   `json:"remove,omitempty"`
 }
 
 // 重试配置
@@ -56,6 +59,12 @@ type RetryConfig struct {
 - 执行模式：`serial` / `parallel` / `async`。
 - 默认值：未显式设置时，层与组件的 `enabled` 默认 true；组件 `timeout` 默认 30s；层 `mode` 默认 serial。
 - 环境变量替换：支持 `${VAR}` 与 `${VAR:default}`（详见 <mcfile name="config.go" path="/Users/kangyujian/goProject/kflow/engine/config.go"></mcfile>）。
+
+## 继承与合并
+- 根级支持 `extends`：子工作流可继承父工作流（文件路径或标识）。
+- 层/组件支持 `remove: true`：在继承合并时删除对应层或组件。
+- 字段合并：子覆盖父的同名字段；`enabled/critical` 仅当显式为 true 时覆盖为 true；未设置不覆盖父值。
+- 合并规则与详解：见配置规范 <mcfile name="config-spec.md" path="/Users/kangyujian/goProject/kflow/docs/config-spec.md"></mcfile> 与英文版 <mcfile name="config-spec.en.md" path="/Users/kangyujian/goProject/kflow/docs/config-spec.en.md"></mcfile>。
 
 ## 组件接口
 
