@@ -14,6 +14,7 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
   "description": "工作流描述",
   "version": "1.0.0",
   "timeout": 0,
+  "extends": "./base_workflow.json",
   "layers": [
     // 层配置数组
   ],
@@ -37,6 +38,7 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
 | `layers` | array | ✅ | - | 层配置数组 |
 | `global` | object | ❌ | {} | 全局参数，传递给所有组件（当前示例未自动注入组件，但可通过自定义逻辑使用） |
 | `metadata` | object | ❌ | {} | 元数据，可用于额外说明 |
+| `extends` | string | ❌ | - | 继承父工作流的 JSON 文件路径（相对/绝对皆可），若提供则在解析阶段先加载父配置并进行合并 |
 
 ### 层配置对象
 
@@ -50,7 +52,7 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
   ],
   "dependencies": ["layer1", "layer2"],
   "enabled": true,
-  "parallel": 0
+"parallel": 0
 }
 ```
 
@@ -65,6 +67,7 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
 | `dependencies` | array | ❌ | [] | 依赖的层名称数组，必须指向在当前层之前的层 |
 | `enabled` | bool | ❌ | true | 是否启用该层 |
 | `parallel` | number | ❌ | 0 | 并行模式的并发度（0 表示不限制） |
+| `remove` | bool | ❌ | false | 继承合并时，若为 true 表示删除该层 |
 
 ### 组件配置对象
 
@@ -97,6 +100,7 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
 | `dependencies` | array | ❌ | [] | 依赖的组件名称数组（当前实现未强制校验组件级依赖） |
 | `config` | object | ❌ | {} | 组件特定配置 |
 | `retry` | object | ❌ | null | 组件重试配置，包括最大重试次数、延迟（纳秒）、退避系数 |
+| `remove` | bool | ❌ | false | 继承合并时，若为 true 表示删除该组件 |
 
 ## 执行模式详解
 
@@ -136,6 +140,39 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
 - 层级超时：`LayerConfig.timeout` 在进入该层时创建新的 `context.WithTimeout`，影响该层的串行/并行/异步执行。
 - 组件超时：`ComponentConfig.timeout` 在解析阶段默认填充为 30s（当未显式设置时）。该字段用于组件实现的参考，当前引擎不会为单个组件自动创建专属超时上下文；组件应在 `Execute(ctx, data)` 中尊重来自全局/层的 `ctx` 取消，并可结合自身的 `timeout` 在内部实现更细粒度的超时逻辑。
 - 超时错误：当上下文被取消（超时/手动取消）时，组件应返回 `ctx.Err()`；错误可能以 `ExecutionError` 或自定义封装（如 `TimeoutError`）的形式出现在统计与日志中。
+
+## 继承（extends）与合并语义
+
+工作流 B 可以通过在根配置中声明 `extends` 字段继承工作流 A。解析器会加载父配置并按照以下规则进行合并：
+
+- 根字段覆盖：子工作流的 `name`、`version`、`description`、`timeout`、`global`、`metadata` 若提供则覆盖父配置（其中 `global`/`metadata` 的同名键覆盖）。
+- 层合并：
+  - `remove: true` 删除父配置中的同名层。
+  - 同名层字段覆盖：`mode`、`timeout`、`enabled`、`parallel`、`dependencies` 等；未提供的字段保留父配置值。
+  - 组件按名称合并：
+    - `remove: true` 删除该组件。
+    - 同名组件覆盖 `type`、`timeout`、`enabled`、`dependencies`；`config` 采用键级合并（子键覆盖父键）；`retry` 若提供则整体覆盖。
+    - 不存在的组件视为新增。
+- 新增层：子工作流提供的、父中不存在的层会追加到末尾。
+- 循环检测：若出现 A extends B 且 B extends A 的循环，解析器会报错 `extends_cycle_detected`。
+
+示例（B 继承 A 并进行增删改）：
+
+```json
+{
+  "extends": "./workflow-a.json",
+  "name": "workflow-b",
+  "layers": [
+    { "name": "L1", "remove": true },
+    { "name": "L2", "mode": "parallel", "parallel": 8 },
+    { "name": "L3", "components": [
+      { "name": "C1", "remove": true },
+      { "name": "C2", "config": { "threshold": 0.9 } },
+      { "name": "C_new", "type": "MyComp", "config": {"foo": "bar"} }
+    ]}
+  ]
+}
+```
 
 ## 配置示例
 

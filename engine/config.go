@@ -12,25 +12,29 @@ import (
 
 // Config DAG 配置
 type Config struct {
-	Name        string                 `json:"name"`
-	Version     string                 `json:"version"`
-	Description string                 `json:"description"`
-	Layers      []LayerConfig          `json:"layers"`
-	Global      map[string]interface{} `json:"global,omitempty"`
-	Timeout     time.Duration          `json:"timeout,omitempty"`
-	Metadata    map[string]string      `json:"metadata,omitempty"`
+    Name        string                 `json:"name"`
+    Version     string                 `json:"version"`
+    Description string                 `json:"description"`
+    Layers      []LayerConfig          `json:"layers"`
+    Global      map[string]interface{} `json:"global,omitempty"`
+    Timeout     time.Duration          `json:"timeout,omitempty"`
+    Metadata    map[string]string      `json:"metadata,omitempty"`
+    Extends     string                 `json:"extends,omitempty"`
 }
+
 
 // ConfigParser 配置解析器
 type ConfigParser struct {
-	envVarPattern *regexp.Regexp
+    envVarPattern *regexp.Regexp
+    visitedExtends map[string]bool
 }
 
 // NewConfigParser 创建新的配置解析器
 func NewConfigParser() *ConfigParser {
-	return &ConfigParser{
-		envVarPattern: regexp.MustCompile(`\$\{([^}]+)\}`),
-	}
+    return &ConfigParser{
+        envVarPattern: regexp.MustCompile(`\$\{([^}]+)\}`),
+        visitedExtends: make(map[string]bool),
+    }
 }
 
 // ParseFile 从文件解析配置
@@ -64,27 +68,176 @@ func (p *ConfigParser) Parse(reader io.Reader) (*Config, error) {
 
 // ParseBytes 从字节数组解析配置
 func (p *ConfigParser) ParseBytes(data []byte) (*Config, error) {
-	// 替换环境变量
-	configStr := p.replaceEnvVars(string(data))
+    // 替换环境变量
+    configStr := p.replaceEnvVars(string(data))
 
-	var config Config
-	if err := json.Unmarshal([]byte(configStr), &config); err != nil {
-		return nil, &ConfigError{
-			Type:    "json_unmarshal_failed",
-			Message: fmt.Sprintf("failed to unmarshal JSON config: %v", err),
-			Cause:   err,
-		}
-	}
+    var config Config
+    if err := json.Unmarshal([]byte(configStr), &config); err != nil {
+        return nil, &ConfigError{
+            Type:    "json_unmarshal_failed",
+            Message: fmt.Sprintf("failed to unmarshal JSON config: %v", err),
+            Cause:   err,
+        }
+    }
 
-	// 验证配置
-	if err := p.validateConfig(&config); err != nil {
-		return nil, err
-	}
+    // 继承支持：如果存在 extends，则加载父配置并合并
+    if config.Extends != "" {
+        if p.visitedExtends[config.Extends] {
+            return nil, &ConfigError{
+                Type:    "extends_cycle_detected",
+                Message: fmt.Sprintf("circular extends detected: %s", config.Extends),
+            }
+        }
+        p.visitedExtends[config.Extends] = true
 
-	// 设置默认值
-	p.setDefaults(&config)
+        parent, err := p.ParseFile(config.Extends)
+        if err != nil {
+            return nil, err
+        }
 
-	return &config, nil
+        merged, err := p.mergeConfigs(parent, &config)
+        if err != nil {
+            return nil, err
+        }
+
+        // 验证合并后的配置
+        if err := p.validateConfig(merged); err != nil {
+            return nil, err
+        }
+        // 设置默认值
+        p.setDefaults(merged)
+        return merged, nil
+    }
+
+    // 验证配置
+    if err := p.validateConfig(&config); err != nil {
+        return nil, err
+    }
+
+    // 设置默认值
+    p.setDefaults(&config)
+
+    return &config, nil
+}
+
+// mergeConfigs 合并父子配置，实现继承与增删改
+func (p *ConfigParser) mergeConfigs(parent, child *Config) (*Config, error) {
+    // 基于父配置克隆副本
+    base, err := parent.Clone()
+    if err != nil {
+        return nil, err
+    }
+
+    // 根字段：如果子配置提供非空值则覆盖
+    if child.Name != "" {
+        base.Name = child.Name
+    }
+    if child.Description != "" {
+        base.Description = child.Description
+    }
+    if child.Version != "" {
+        base.Version = child.Version
+    }
+    if child.Timeout > 0 {
+        base.Timeout = child.Timeout
+    }
+
+    // 合并 Global 与 Metadata（子配置键覆盖父配置）
+    if child.Global != nil {
+        if base.Global == nil { base.Global = make(map[string]interface{}) }
+        for k, v := range child.Global {
+            base.Global[k] = v
+        }
+    }
+    if child.Metadata != nil {
+        if base.Metadata == nil { base.Metadata = make(map[string]string) }
+        for k, v := range child.Metadata {
+            base.Metadata[k] = v
+        }
+    }
+
+    // 构建父层索引
+    layerIdx := make(map[string]int)
+    for i, l := range base.Layers {
+        layerIdx[l.Name] = i
+    }
+
+    // 处理子层定义：新增、删除、修改
+    for _, cl := range child.Layers {
+        // 删除层：通过 remove 标记
+        if cl.Remove {
+            if idx, ok := layerIdx[cl.Name]; ok {
+                // 删除该层
+                base.Layers = append(base.Layers[:idx], base.Layers[idx+1:]...)
+                // 更新索引
+                layerIdx = make(map[string]int)
+                for i, l := range base.Layers {
+                    layerIdx[l.Name] = i
+                }
+            }
+            continue
+        }
+
+        if idx, ok := layerIdx[cl.Name]; ok {
+            // 修改/覆盖层
+            bl := base.Layers[idx]
+            if cl.Mode != "" { bl.Mode = cl.Mode }
+            if cl.Timeout > 0 { bl.Timeout = cl.Timeout }
+            // Enabled：仅在子为 true 时覆盖，避免未显式提供导致覆盖为 false
+            if cl.Enabled {
+                bl.Enabled = true
+            }
+            if cl.Parallel > 0 { bl.Parallel = cl.Parallel }
+            if len(cl.Dependencies) > 0 { bl.Dependencies = cl.Dependencies }
+
+            // 组件合并
+            compIdx := make(map[string]int)
+            for i, c := range bl.Components { compIdx[c.Name] = i }
+            for _, cc := range cl.Components {
+                if cc.Remove {
+                    if cidx, ok := compIdx[cc.Name]; ok {
+                        bl.Components = append(bl.Components[:cidx], bl.Components[cidx+1:]...)
+                        // rebuild index
+                        compIdx = make(map[string]int)
+                        for i, c := range bl.Components { compIdx[c.Name] = i }
+                    }
+                    continue
+                }
+                if cidx, ok := compIdx[cc.Name]; ok {
+                    bc := bl.Components[cidx]
+                    if cc.Type != "" { bc.Type = cc.Type }
+                    if cc.Timeout > 0 { bc.Timeout = cc.Timeout }
+                    // 仅在子为 true 时覆盖 enabled，避免未显式提供导致覆盖为 false
+                    if cc.Enabled {
+                        bc.Enabled = true
+                    }
+                    // 仅在子为 true 时覆盖 critical（如需关闭可通过 remove 删除）
+                    if cc.Critical {
+                        bc.Critical = true
+                    }
+                    if len(cc.Dependencies) > 0 { bc.Dependencies = cc.Dependencies }
+                    // 合并 config（子覆盖父）
+                    if cc.Config != nil {
+                        if bc.Config == nil { bc.Config = make(map[string]interface{}) }
+                        for k, v := range cc.Config { bc.Config[k] = v }
+                    }
+                    // 覆盖 retry（如果提供）
+                    if cc.Retry != nil { bc.Retry = cc.Retry }
+                    bl.Components[cidx] = bc
+                } else {
+                    // 新增组件
+                    bl.Components = append(bl.Components, cc)
+                }
+            }
+            base.Layers[idx] = bl
+        } else {
+            // 新增层
+            base.Layers = append(base.Layers, cl)
+            layerIdx[cl.Name] = len(base.Layers) - 1
+        }
+    }
+
+    return base, nil
 }
 
 // replaceEnvVars 替换配置中的环境变量

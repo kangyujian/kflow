@@ -21,13 +21,14 @@ const (
 
 // LayerConfig 层级配置
 type LayerConfig struct {
-	Name         string            `json:"name"`
-	Mode         ExecutionMode     `json:"mode"`
-	Components   []ComponentConfig `json:"components"`
-	Timeout      time.Duration     `json:"timeout"`
-	Dependencies []string          `json:"dependencies"`
-	Enabled      bool              `json:"enabled"`
-	Parallel     int               `json:"parallel,omitempty"` // 并行度限制
+    Name         string            `json:"name"`
+    Mode         ExecutionMode     `json:"mode"`
+    Components   []ComponentConfig `json:"components"`
+    Timeout      time.Duration     `json:"timeout"`
+    Dependencies []string          `json:"dependencies"`
+    Enabled      bool              `json:"enabled"`
+    Parallel     int               `json:"parallel,omitempty"` // 并行度限制
+    Remove       bool              `json:"remove,omitempty"`
 }
 
 // Layer 表示 DAG 中的一个层级

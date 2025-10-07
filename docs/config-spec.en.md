@@ -14,6 +14,7 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
   "description": "workflow description",
   "version": "1.0.0",
   "timeout": 0,
+  "extends": "./base_workflow.json",
   "layers": [
     // array of layer configs
   ],
@@ -37,6 +38,7 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
 | `layers` | array | ✅ | - | Array of layer configurations |
 | `global` | object | ❌ | {} | Global parameters passed to all components (usage may depend on custom logic) |
 | `metadata` | object | ❌ | {} | Extra metadata |
+| `extends` | string | ❌ | - | Path to parent workflow JSON (relative or absolute). If provided, the parser loads the parent and merges it into the child.
 
 ### Layer Configuration Object
 
@@ -50,7 +52,7 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
   ],
   "dependencies": ["layer1", "layer2"],
   "enabled": true,
-  "parallel": 0
+"parallel": 0
 }
 ```
 
@@ -65,6 +67,7 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
 | `dependencies` | array | ❌ | [] | Names of dependent layers that must precede the current layer |
 | `enabled` | bool | ❌ | true | Whether the layer is enabled |
 | `parallel` | number | ❌ | 0 | Concurrency limit for parallel mode (0 means unlimited) |
+| `remove` | bool | ❌ | false | When merging inheritance, if true, delete the layer |
 
 ### Component Configuration Object
 
@@ -97,6 +100,7 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
 | `dependencies` | array | ❌ | [] | Dependent component names (component-level dependency not strictly enforced in current implementation) |
 | `config` | object | ❌ | {} | Component-specific configuration |
 | `retry` | object | ❌ | null | Retry configuration including max retries, delay (nanoseconds), and backoff factor |
+| `remove` | bool | ❌ | false | When merging inheritance, if true, delete the component |
 
 ## Execution Modes
 
@@ -136,6 +140,39 @@ Example (component-level retry config):
 - Layer timeout: `LayerConfig.timeout` creates a new `context.WithTimeout` when entering the layer, affecting serial/parallel/async execution within that layer.
 - Component timeout: `ComponentConfig.timeout` defaults to 30s during parsing when not explicitly set. This is provided for component implementations; the engine does not automatically create a dedicated timeout context per component. Components should respect cancellation from the passed `ctx` and can implement finer-grained control internally using their own `timeout`.
 - Timeout errors: When the context is cancelled (timeout or manual cancel), components should return `ctx.Err()`. Errors may appear as `ExecutionError` or custom wrappers (e.g., `TimeoutError`) in logs and stats.
+
+## Inheritance (extends) and Merge Semantics
+
+Workflow B can inherit workflow A by setting `extends` in the root config. The parser loads the parent and merges using the following rules:
+
+- Root field override: child `name`, `version`, `description`, `timeout`, `global`, and `metadata` override the parent when provided (for `global`/`metadata`, keys in the child override keys in the parent).
+- Layer merge:
+  - `remove: true` deletes the layer with the same name in the parent.
+  - Same-name layer field overrides: `mode`, `timeout`, `enabled`, `parallel`, `dependencies`; unspecified fields remain from the parent.
+  - Components are merged by name:
+    - `remove: true` deletes the component.
+    - Same-name component overrides `type`, `timeout`, `enabled`, `dependencies`; `config` uses key-level merge (child keys override parent keys); `retry` overrides entirely when provided.
+    - Nonexistent components are treated as additions.
+- New layers: child layers not present in the parent are appended.
+- Cycle detection: circular inheritance (e.g., A extends B and B extends A) yields `extends_cycle_detected`.
+
+Example (B extends A and performs add/delete/patch):
+
+```json
+{
+  "extends": "./workflow-a.json",
+  "name": "workflow-b",
+  "layers": [
+    { "name": "L1", "remove": true },
+    { "name": "L2", "mode": "parallel", "parallel": 8 },
+    { "name": "L3", "components": [
+      { "name": "C1", "remove": true },
+      { "name": "C2", "config": { "threshold": 0.9 } },
+      { "name": "C_new", "type": "MyComp", "config": {"foo": "bar"} }
+    ]}
+  ]
+}
+```
 
 ## Example
 

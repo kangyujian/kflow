@@ -58,14 +58,15 @@ type RetryConfig struct {
 
 // ComponentConfig 组件配置
 type ComponentConfig struct {
-	Name         string                 `json:"name"`
-	Type         string                 `json:"type"`
-	Config       map[string]interface{} `json:"config"`
-	Dependencies []string               `json:"dependencies"`
-	Timeout      time.Duration          `json:"timeout"`
-	Retry        *RetryConfig           `json:"retry,omitempty"`
-	Critical     bool                   `json:"critical"`
-	Enabled      bool                   `json:"enabled"`
+    Name         string                 `json:"name"`
+    Type         string                 `json:"type"`
+    Config       map[string]interface{} `json:"config"`
+    Dependencies []string               `json:"dependencies"`
+    Timeout      time.Duration          `json:"timeout"`
+    Retry        *RetryConfig           `json:"retry,omitempty"`
+    Critical     bool                   `json:"critical"`
+    Enabled      bool                   `json:"enabled"`
+    Remove       bool                   `json:"remove,omitempty"`
 }
 
 // ComponentFactory 组件工厂接口
