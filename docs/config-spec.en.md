@@ -104,6 +104,39 @@ KFlow uses JSON configuration files to define DAG structure and execution strate
 - Parallel: all components within a layer execute concurrently and wait for completion
 - Async: components execute asynchronously and proceed to the next layer immediately
 
+## Retry Configuration Details
+
+- Two usage patterns:
+  - Component implements `RetryableComponent`, returns `GetRetryConfig()`, and uses `ShouldRetry(err)` to decide whether to continue.
+  - Provide a `retry` object in the component config (`max_retries`, `delay`, `backoff`); the component factory/implementation reads and applies it.
+- Field semantics:
+  - `max_retries`: maximum retries excluding the initial attempt; total attempts = 1 + `max_retries`.
+  - `delay`: initial retry delay (nanoseconds).
+  - `backoff`: backoff factor. In the current layer implementation, the delay for the n-th retry (n starts at 1) is `delay` × (`backoff` × (n-1)). This is linear scaling with the factor, not exponential power.
+- Behavior:
+  - The engine only performs unified retry for components that implement `RetryableComponent`.
+  - If `ShouldRetry(err)` returns false, retry stops early and the current error is returned.
+  - When retries are exhausted, a `RetryExhaustedError` is returned, which includes the last error and the list of all attempt errors.
+
+Example (component-level retry config):
+
+```json
+{
+  "name": "http_fetcher",
+  "type": "http_client",
+  "timeout": 30000000000,
+  "retry": { "max_retries": 3, "delay": 1000000000, "backoff": 2.0 },
+  "config": { "endpoint": "https://api.example.com" }
+}
+```
+
+## Timeout Control
+
+- Global timeout: `Config.timeout` sets the overall workflow timeout. The engine creates a `context.WithTimeout` at the start, shared by all layers and components.
+- Layer timeout: `LayerConfig.timeout` creates a new `context.WithTimeout` when entering the layer, affecting serial/parallel/async execution within that layer.
+- Component timeout: `ComponentConfig.timeout` defaults to 30s during parsing when not explicitly set. This is provided for component implementations; the engine does not automatically create a dedicated timeout context per component. Components should respect cancellation from the passed `ctx` and can implement finer-grained control internally using their own `timeout`.
+- Timeout errors: When the context is cancelled (timeout or manual cancel), components should return `ctx.Err()`. Errors may appear as `ExecutionError` or custom wrappers (e.g., `TimeoutError`) in logs and stats.
+
 ## Example
 
 ### Complete Example

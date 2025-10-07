@@ -104,6 +104,39 @@ KFlow 使用 JSON 格式的配置文件来定义 DAG（有向无环图）的结�
 - Parallel (并行执行)：层内所有组件并发执行，等待全部完成
 - Async (异步执行)：组件异步执行，不等待完成即进入下一层
 
+## 重试配置详解
+
+- 支持两种使用方式：
+  - 组件实现 `RetryableComponent` 接口，并通过 `GetRetryConfig()` 返回配置，`ShouldRetry(err)` 决定是否继续重试。
+  - 在组件配置中提供 `retry` 字段（`max_retries`、`delay`、`backoff`），由组件工厂/实现读取并应用到自身的重试策略。
+- 字段语义：
+  - `max_retries`：最大重试次数（不含首次尝试），总尝试次数 = 1 + `max_retries`。
+  - `delay`：初始重试延迟（纳秒）。
+  - `backoff`：退避系数，层内的重试延迟计算为：第 n 次重试（n 从 1 开始）的延迟 = `delay` × (`backoff` × (n-1))。该实现为线性乘系数，并非指数幂。
+- 行为说明：
+  - 引擎仅对实现了 `RetryableComponent` 的组件执行统一重试流程；未实现该接口的组件不会自动重试。
+  - 当 `ShouldRetry(err)` 返回 false 时，提前停止重试并返回当前错误。
+  - 重试耗尽时返回 `RetryExhaustedError`，其中包含最后一次错误与所有尝试的错误列表。
+
+示例（组件级重试配置）：
+
+```json
+{
+  "name": "http_fetcher",
+  "type": "http_client",
+  "timeout": 30000000000,
+  "retry": { "max_retries": 3, "delay": 1000000000, "backoff": 2.0 },
+  "config": { "endpoint": "https://api.example.com" }
+}
+```
+
+## 超时控制
+
+- 全局超时：`Config.timeout` 设置整个工作流的超时，进入引擎执行时会创建 `context.WithTimeout`，所有层与组件共享该上下文。
+- 层级超时：`LayerConfig.timeout` 在进入该层时创建新的 `context.WithTimeout`，影响该层的串行/并行/异步执行。
+- 组件超时：`ComponentConfig.timeout` 在解析阶段默认填充为 30s（当未显式设置时）。该字段用于组件实现的参考，当前引擎不会为单个组件自动创建专属超时上下文；组件应在 `Execute(ctx, data)` 中尊重来自全局/层的 `ctx` 取消，并可结合自身的 `timeout` 在内部实现更细粒度的超时逻辑。
+- 超时错误：当上下文被取消（超时/手动取消）时，组件应返回 `ctx.Err()`；错误可能以 `ExecutionError` 或自定义封装（如 `TimeoutError`）的形式出现在统计与日志中。
+
 ## 配置示例
 
 ### 完整示例

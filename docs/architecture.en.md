@@ -50,10 +50,17 @@ This document describes the overall architecture and design concepts consistent 
 4. Retry & Critical Components
 - Components may declare `retry` strategies or implement `RetryableComponent`; layer's `executeWithRetry` handles retries uniformly.
 - Components with `critical=true` failing will cause layer or global failure.
+ - Retry parameters: `max_retries` (excluding the initial attempt; total attempts = 1 + max_retries), `delay` (nanoseconds), `backoff` (factor). Layer delay formula: for the n-th retry, delay = `delay` × (`backoff` × (n-1)) — linear scaling, not exponential.
+ - Early stop when `ShouldRetry(err)` returns false; retries exhausted return `RetryExhaustedError`.
 
 5. Stats & Logging
 - Engine collects `ExecutionStats`; each layer records start/end, success/failure, and duration.
 - Custom Logger and Error Handler can be injected via options.
+
+6. Timeout Control
+- Global: `Config.timeout` sets a workflow-wide `context.WithTimeout` at the start.
+- Layer: `LayerConfig.timeout` sets a new `context.WithTimeout` when entering the layer, affecting serial/parallel/async execution.
+- Component: `ComponentConfig.timeout` (default 30s) is provided for component implementations; the engine does not automatically create a per-component timeout context. Components should honor cancellation in `Execute(ctx, data)` and may implement finer-grained control using their own `timeout`.
 
 ## Config Example (Excerpt)
 

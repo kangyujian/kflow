@@ -50,10 +50,17 @@
 4. 重试与关键组件
 - 组件可声明 `retry` 策略或实现 `RetryableComponent`，由层的 `executeWithRetry` 统一处理。
 - `critical=true` 的组件失败会导致层或全局失败。
+ - 重试参数：`max_retries`（不含首次尝试，总尝试=1+max_retries）、`delay`（纳秒）、`backoff`（退避系数）。层内重试延迟计算：第 n 次重试延迟 = `delay` × (`backoff` × (n-1))，为线性乘系数。
+ - 当 `ShouldRetry(err)` 返回 false 时提前结束重试；耗尽后返回 `RetryExhaustedError`。
 
 5. 统计与日志
 - Engine 收集 `ExecutionStats`，每层记录开始/结束、成功/失败与耗时。
 - 可通过选项注入自定义 Logger 与错误处理器。
+
+6. 超时控制
+- 全局：`Config.timeout` 在引擎开始时设置整体 `context.WithTimeout`。
+- 层级：`LayerConfig.timeout` 进入该层时设置新的 `context.WithTimeout`，影响串行/并行/异步执行。
+- 组件：`ComponentConfig.timeout`（默认 30s）提供给组件实现参考，当前引擎不为单组件自动创建专属超时；组件应在 `Execute(ctx, data)` 中尊重 `ctx` 取消，并可结合自身的 `timeout` 实现更细粒度控制。
 
 ## 配置示例（节选）
 
