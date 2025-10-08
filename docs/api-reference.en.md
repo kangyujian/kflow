@@ -93,6 +93,13 @@ type ValidatableComponent interface {
 
 Shared data is passed via `DataContext` with concurrency-safe `Set/Get/GetString/Delete/Has/Snapshot` methods; components read/write by keys (e.g., `file_data`, `transformed_data`).
 
+### Data Passing with DataContext
+- Init: `NewDataContext()` or `NewDataContextWith(map[string]interface{})`.
+- Common keys: `input_path`, `file_data`, `transformed_data`, `output_path`, `errors`.
+- Snapshot: `Snapshot()` returns a shallow copy for debugging/output.
+- Concurrency: safe for parallel layers; deep copy reference types when necessary.
+- Details & examples: see <mcfile name="data-context.en.md" path="/Users/kangyujian/goProject/kflow/docs/data-context.en.md"></mcfile>.
+
 ## Component Factory & Registry
 
 ```go

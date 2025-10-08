@@ -93,6 +93,13 @@ type ValidatableComponent interface {
 
 共享数据通过 `DataContext` 传递，提供并发安全的 `Set/Get/GetString/Delete/Has/Snapshot` 接口，各组件通过键读写（例如 `file_data`、`transformed_data`）。
 
+### 数据传递与共享 DataContext
+- 初始化：`NewDataContext()` 或 `NewDataContextWith(map[string]interface{})`。
+- 常用键约定：`input_path`、`file_data`、`transformed_data`、`output_path`、`errors`。
+- 快照：`Snapshot()` 返回浅拷贝，便于调试输出。
+- 并发安全：适用于并行层；`map/slice` 等引用类型需按需深拷贝。
+- 详解与示例：参见 <mcfile name="data-context.md" path="/Users/kangyujian/goProject/kflow/docs/data-context.md"></mcfile>。
+
 ## 组件工厂与注册表
 
 ```go
