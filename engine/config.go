@@ -39,6 +39,10 @@ func NewConfigParser() *ConfigParser {
 
 // ParseFile 从文件解析配置
 func (p *ConfigParser) ParseFile(filename string) (*Config, error) {
+	return p.parseFile(filename, true)
+}
+
+func (p *ConfigParser) parseFile(filename string, resetVisited bool) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, &ConfigError{
@@ -49,11 +53,15 @@ func (p *ConfigParser) ParseFile(filename string) (*Config, error) {
 	}
 	defer file.Close()
 
-	return p.Parse(file)
+	return p.parse(file, resetVisited)
 }
 
 // Parse 从 Reader 解析配置
 func (p *ConfigParser) Parse(reader io.Reader) (*Config, error) {
+	return p.parse(reader, true)
+}
+
+func (p *ConfigParser) parse(reader io.Reader, resetVisited bool) (*Config, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, &ConfigError{
@@ -63,61 +71,68 @@ func (p *ConfigParser) Parse(reader io.Reader) (*Config, error) {
 		}
 	}
 
-	return p.ParseBytes(data)
+	return p.parseBytes(data, resetVisited)
 }
 
 // ParseBytes 从字节数组解析配置
 func (p *ConfigParser) ParseBytes(data []byte) (*Config, error) {
-    // 替换环境变量
-    configStr := p.replaceEnvVars(string(data))
+	return p.parseBytes(data, true)
+}
 
-    var config Config
-    if err := json.Unmarshal([]byte(configStr), &config); err != nil {
-        return nil, &ConfigError{
-            Type:    "json_unmarshal_failed",
-            Message: fmt.Sprintf("failed to unmarshal JSON config: %v", err),
-            Cause:   err,
-        }
-    }
+func (p *ConfigParser) parseBytes(data []byte, resetVisited bool) (*Config, error) {
+	if resetVisited {
+		p.visitedExtends = make(map[string]bool)
+	}
+	// 替换环境变量
+	configStr := p.replaceEnvVars(string(data))
 
-    // 继承支持：如果存在 extends，则加载父配置并合并
-    if config.Extends != "" {
-        if p.visitedExtends[config.Extends] {
-            return nil, &ConfigError{
-                Type:    "extends_cycle_detected",
-                Message: fmt.Sprintf("circular extends detected: %s", config.Extends),
-            }
-        }
-        p.visitedExtends[config.Extends] = true
+	var config Config
+	if err := json.Unmarshal([]byte(configStr), &config); err != nil {
+		return nil, &ConfigError{
+			Type:    "json_unmarshal_failed",
+			Message: fmt.Sprintf("failed to unmarshal JSON config: %v", err),
+			Cause:   err,
+		}
+	}
 
-        parent, err := p.ParseFile(config.Extends)
-        if err != nil {
-            return nil, err
-        }
+	// 继承支持：如果存在 extends，则加载父配置并合并
+	if config.Extends != "" {
+		if p.visitedExtends[config.Extends] {
+			return nil, &ConfigError{
+				Type:    "extends_cycle_detected",
+				Message: fmt.Sprintf("circular extends detected: %s", config.Extends),
+			}
+		}
+		p.visitedExtends[config.Extends] = true
 
-        merged, err := p.mergeConfigs(parent, &config)
-        if err != nil {
-            return nil, err
-        }
+		parent, err := p.parseFile(config.Extends, false)
+		if err != nil {
+			return nil, err
+		}
 
-        // 验证合并后的配置
-        if err := p.validateConfig(merged); err != nil {
-            return nil, err
-        }
-        // 设置默认值
-        p.setDefaults(merged)
-        return merged, nil
-    }
+		merged, err := p.mergeConfigs(parent, &config)
+		if err != nil {
+			return nil, err
+		}
 
-    // 验证配置
-    if err := p.validateConfig(&config); err != nil {
-        return nil, err
-    }
+		// 验证合并后的配置
+		if err := p.validateConfig(merged); err != nil {
+			return nil, err
+		}
+		// 设置默认值
+		p.setDefaults(merged)
+		return merged, nil
+	}
 
-    // 设置默认值
-    p.setDefaults(&config)
+	// 验证配置
+	if err := p.validateConfig(&config); err != nil {
+		return nil, err
+	}
 
-    return &config, nil
+	// 设置默认值
+	p.setDefaults(&config)
+
+	return &config, nil
 }
 
 // mergeConfigs 合并父子配置，实现继承与增删改

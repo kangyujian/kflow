@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 )
@@ -254,13 +255,22 @@ func (l *Layer) executeWithRetry(ctx context.Context, component RetryableCompone
 	var retryErrors []error
 
 	for attempt := 0; attempt <= retryConfig.MaxRetries; attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if attempt > 0 {
-			// 计算退避延迟
-			delay := time.Duration(float64(retryConfig.Delay) * (retryConfig.Backoff * float64(attempt-1)))
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
+			delay := retryConfig.Delay
+			if delay > 0 {
+				if retryConfig.Backoff > 0 {
+					delay = time.Duration(float64(retryConfig.Delay) * math.Pow(retryConfig.Backoff, float64(attempt-1)))
+				}
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(delay):
+				}
 			}
 		}
 
@@ -272,9 +282,8 @@ func (l *Layer) executeWithRetry(ctx context.Context, component RetryableCompone
 		lastErr = err
 		retryErrors = append(retryErrors, err)
 
-		// 检查是否应该重试
 		if !component.ShouldRetry(err) {
-			break
+			return err
 		}
 	}
 
